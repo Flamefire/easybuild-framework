@@ -483,10 +483,35 @@ class ModulesTool(object):
 
         return ans
 
-    def module_wrapper_exists(self, mod_name, modulerc_fn='.modulerc', mod_wrapper_regex_template=None):
+    def _get_modulerc_files(self, mod_name, modulerc_fn='.modulerc'):
+        """
+        Return modulerc files applicable for mod_name
+        """
+        mod_dir = os.path.dirname(mod_name) if mod_name else ''
+        res = []
+        for mod_path in self.curr_module_paths():
+            modulerc_cand = os.path.join(mod_path, mod_dir, modulerc_fn)
+            if os.path.exists(modulerc_cand):
+                res.append(modulerc_cand)
+        return res
+
+    def _resolve_alias(self, modulerc, mod_name, mod_version_regex_tmpl=None):
+        """
+        Parse the given modulrc file to find the real module for the (potential) alias mod_name
+        """
+        if mod_version_regex_tmpl is None:
+            mod_version_regex_tmpl = "^[ ]*module-version (?P<wrapped_mod>[^ ]*) %s$"
+        mod_version_regex = re.compile(mod_version_regex_tmpl % os.path.basename(mod_name), re.M)
+        res = mod_version_regex.search(read_file(modulerc))
+        if res:
+            wrapped_mod = res.group('wrapped_mod')
+            self.log.debug("Confirmed that %s is a module wrapper for %s", mod_name, wrapped_mod)
+            break
+
+
+    def module_wrapper_exists(self, mod_name):
         """
         Determine whether a module wrapper with specified name exists.
-        Only .modulerc file in Tcl syntax is considered here.
         """
         if mod_wrapper_regex_template is None:
             mod_wrapper_regex_template = "^[ ]*module-version (?P<wrapped_mod>[^ ]*) %s$"
@@ -495,7 +520,7 @@ class ModulesTool(object):
 
         mod_dir = os.path.dirname(mod_name)
         wrapper_regex = re.compile(mod_wrapper_regex_template % os.path.basename(mod_name), re.M)
-        for mod_path in curr_module_paths():
+        for mod_path in self.get_modulerc_paths():
             modulerc_cand = os.path.join(mod_path, mod_dir, modulerc_fn)
             if os.path.exists(modulerc_cand):
                 self.log.debug("Found %s that may define %s as a wrapper for a module file", modulerc_cand, mod_name)
@@ -1357,6 +1382,45 @@ class Lmod(ModulesTool):
             self.use(path, priority=priority)
             if set_mod_paths:
                 self.set_mod_paths()
+
+    def _get_modulerc_files(self, mod_name)
+        # consider .modulerc.lua with Lmod 7.8 (or newer)
+        use_lua_files = StrictVersion(self.version) >= StrictVersion('7.8')
+        potential_exts = ['']
+        if use_lua_files:
+            potential_exts.append('.lua')
+
+        # User home
+        res = []
+        home_path = os.path.expanduser('~')
+        for modulerc_fn in ('.modulerc' + ext for ext in potential_exts):
+            res.append(os.path.join(home_path, modulerc_fn))
+
+        # System
+        system_modulerc_found = False
+        for name in ('LMOD_MODULERCFILE', 'MODULERCFILE'):
+            value = os.environ.get(name)
+            if value:
+                res.extend(filename for filename in value.split(':'))
+                system_modulerc_found = True
+        if not system_modulerc_found:
+            etc_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(self.cmd))), 'etc')
+            for modulerc_fn in ('rc' + ext for ext in potential_exts):
+                res.append(os.path.join(etc_path, modulerc_fn))
+
+        # Filter out non-existing paths
+        res = [p for p in res if os.path.isfile(p)]
+
+        # Module paths
+        for modulerc_fn in ('.modulerc' + ext for ext in potential_exts):
+            res.extent(super(Lmod, self)._get_modulerc_files(None, modulerc_fn))
+            res.extent(super(Lmod, self)._get_modulerc_files(mod_name, modulerc_fn))
+        
+        if use_lua_files:
+            # Put lua files first
+            res = list(sorted(res, key=lambda p: os.path.splitext(p)[-1] == '.lua', reverse=True))
+        return res
+
 
     def module_wrapper_exists(self, mod_name):
         """
