@@ -43,7 +43,7 @@ from easybuild.tools.systemtools import CPU_ARCHITECTURES, AARCH32, AARCH64, POW
 from easybuild.tools.systemtools import CPU_FAMILIES, POWER_LE, DARWIN, LINUX, UNKNOWN
 from easybuild.tools.systemtools import CPU_VENDORS, AMD, APM, ARM, CAVIUM, IBM, INTEL
 from easybuild.tools.systemtools import MAX_FREQ_FP, PROC_CPUINFO_FP, PROC_MEMINFO_FP
-from easybuild.tools.systemtools import check_python_version, pick_dep_version
+from easybuild.tools.systemtools import check_python_version, pick_dep_version, pick_system_specific_value
 from easybuild.tools.systemtools import det_parallelism, get_avail_core_count, get_cpu_arch_name, get_cpu_architecture
 from easybuild.tools.systemtools import get_cpu_family, get_cpu_features, get_cpu_model, get_cpu_speed, get_cpu_vendor
 from easybuild.tools.systemtools import get_gcc_version, get_glibc_version, get_os_type, get_os_name, get_os_version
@@ -911,6 +911,36 @@ class SystemToolsTest(EnhancedTestCase):
 
         error_pattern = "Unknown value type for version"
         self.assertErrorRegex(EasyBuildError, error_pattern, pick_dep_version, ('1.2.3', '4.5.6'))
+
+    def test_pick_system_specific_value(self):
+        """Test pick_system_specific_value function."""
+
+        self.assertEqual(pick_system_specific_value('test-desc', None), None)
+        self.assertEqual(pick_system_specific_value('test-desc', '1.2.3'), '1.2.3')
+        self.assertEqual(pick_system_specific_value('test-desc', (42, 'foobar')), (42, 'foobar'))
+
+        option_dict = {
+            'arch=x86_64': '1.2.3-amd64',
+            'arch=POWER': '1.2.3-ppc64le',
+        }
+
+        st.get_cpu_architecture = lambda: X86_64
+        self.assertEqual(pick_system_specific_value('test-desc', option_dict), '1.2.3-amd64')
+
+        st.get_cpu_architecture = lambda: POWER
+        self.assertEqual(pick_system_specific_value('test-desc', option_dict), '1.2.3-ppc64le')
+
+        st.get_cpu_architecture = lambda: "NON_EXISTING_ARCH"
+        self.assertEqual(pick_system_specific_value('test-desc', option_dict), None)
+
+        self.assertEqual(pick_system_specific_value('test-desc', {}), None)
+
+        error_pattern = "Unexpected keys in test-desc: .*foo.*. Only 'arch=' keys are supported"
+        self.assertErrorRegex(EasyBuildError, error_pattern, pick_system_specific_value, 'test-desc',
+                              {'foo': '1'})
+        error_pattern = "Unexpected keys in test-desc: .*foo.*. Only 'arch=' keys are supported"
+        self.assertErrorRegex(EasyBuildError, error_pattern, pick_system_specific_value, 'test-desc',
+                              {'foo': '1', 'arch=POWER': '2'})
 
 
 def suite():

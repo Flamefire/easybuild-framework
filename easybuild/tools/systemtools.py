@@ -896,6 +896,30 @@ def check_python_version():
     return (python_maj_ver, python_min_ver)
 
 
+def pick_system_specific_value(description, options_or_value):
+    """Pick an entry for the current system when the input has multiple options
+
+    :param description: Descriptive string about the value to be retrieved. Used for logging.
+    :param options_or_value: Either a dictionary with options to choose from or a value of any other type
+
+    :return options_or_value when it is not a dictionary or the matching entry (if existing)
+    """
+    result = options_or_value
+    if isinstance(options_or_value, dict):
+        my_arch_key = 'arch=%s' % get_cpu_architecture()
+        other_keys = [x for x in options_or_value.keys() if not x.startswith('arch=')]
+        if other_keys:
+            raise EasyBuildError("Unexpected keys in %s: %s. Only 'arch=' keys are supported", description, other_keys)
+        try:
+            result = options_or_value[my_arch_key]
+            _log.info("Selected %s from %s for %s (using key %s)", result, options_or_value, description, my_arch_key)
+        except KeyError:
+            result = None
+            _log.info("No matching %s for current system in '%s' (looking for %s)",
+                      description, options_or_value, my_arch_key)
+    return result
+
+
 def pick_dep_version(dep_version):
     """
     Pick the correct dependency version to use for this system.
@@ -905,29 +929,12 @@ def pick_dep_version(dep_version):
 
     Return value is the version to use.
     """
-    if isinstance(dep_version, string_type):
-        _log.debug("Version is already a string ('%s'), OK", dep_version)
-        result = dep_version
-
-    elif dep_version is None:
+    if dep_version is None:
         _log.debug("Version is None, OK")
         result = None
-
-    elif isinstance(dep_version, dict):
-        # figure out matches based on dict keys (after splitting on '=')
-        my_arch_key = 'arch=%s' % get_cpu_architecture()
-        arch_keys = [x for x in dep_version.keys() if x.startswith('arch=')]
-        other_keys = [x for x in dep_version.keys() if x not in arch_keys]
-        if other_keys:
-            raise EasyBuildError("Unexpected keys in version: %s. Only 'arch=' keys are supported", other_keys)
-        if arch_keys:
-            if my_arch_key in dep_version:
-                result = dep_version[my_arch_key]
-                _log.info("Version selected from %s using key %s: %s", dep_version, my_arch_key, result)
-            else:
-                raise EasyBuildError("No matches for version in %s (looking for %s)", dep_version, my_arch_key)
-
     else:
-        raise EasyBuildError("Unknown value type for version: %s", dep_version)
+        result = pick_system_specific_value("version", dep_version)
+        if not isinstance(result, string_type):
+            raise EasyBuildError("Unknown value type for version: %s", result)
 
     return result
