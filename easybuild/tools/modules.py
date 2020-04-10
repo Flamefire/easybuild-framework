@@ -543,21 +543,9 @@ class ModulesTool(object):
 
             :param mod_name: module name
             """
+            mod_exists_regex = mod_exists_regex_template % re.escape(mod_name)
             txt = self.show(mod_name)
-            res = False
-            names_to_check = [mod_name]
-            # The module might be an alias where the target can be arbitrary
-            # As a compromise we check for the base name of the module so we find
-            # "Java/whatever-11" when searching for "Java/11" (--> basename="Java")
-            basename = os.path.dirname(mod_name)
-            if basename:
-                names_to_check.append(basename)
-            for name in names_to_check:
-                mod_exists_regex = mod_exists_regex_template % re.escape(name)
-                if re.search(mod_exists_regex, txt, re.M):
-                    res = True
-                    break
-            return res
+            return bool(re.search(mod_exists_regex, txt, re.M))
 
         if skip_avail:
             avail_mod_names = []
