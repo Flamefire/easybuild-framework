@@ -43,6 +43,7 @@ from unittest import TextTestRunner
 import easybuild.tools.modules as mod
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.tools.build_log import EasyBuildError
+from easybuild.tools.environment import modify_env
 from easybuild.tools.filetools import adjust_permissions, copy_file, copy_dir, mkdir
 from easybuild.tools.filetools import read_file, remove_dir, remove_file, symlink, write_file
 from easybuild.tools.modules import EnvironmentModules, EnvironmentModulesC, EnvironmentModulesTcl, Lmod, NoModulesTool
@@ -90,6 +91,87 @@ class ModulesTest(EnhancedTestCase):
         self.assertEqual(ms, ['GCC/4.6.3'])
 
         shutil.rmtree(tmpdir)
+
+    def test_run_module(self):
+        """Test for ModulesTool.run_module method."""
+
+        testdir = os.path.dirname(os.path.abspath(__file__))
+
+        for key in ['EBROOTGCC', 'EBROOTOPENMPI', 'EBROOTOPENBLAS']:
+            if key in os.environ:
+                del os.environ[key]
+
+        # arguments can be passed in two ways: multiple arguments, or just 1 list argument
+        self.modtool.run_module('load', 'GCC/6.4.0-2.28')
+        self.assertEqual(os.environ['EBROOTGCC'], '/prefix/software/GCC/6.4.0-2.28')
+
+        # restore original environment
+        modify_env(os.environ, self.orig_environ, verbose=False)
+        self.reset_modulepath([os.path.join(testdir, 'modules')])
+
+        self.assertFalse('EBROOTGCC' in os.environ)
+        self.modtool.run_module(['load', 'GCC/6.4.0-2.28'])
+        self.assertEqual(os.environ['EBROOTGCC'], '/prefix/software/GCC/6.4.0-2.28')
+
+        # by default, exit code is checked and an error is raised if we run something that fails
+        error_pattern = "Module command 'module thisdoesnotmakesense' failed with exit code [1-9]"
+        self.assertErrorRegex(EasyBuildError, error_pattern, self.modtool.run_module, 'thisdoesnotmakesense')
+
+        error_pattern = "Module command 'module load nosuchmodule/1.2.3' failed with exit code [1-9]"
+        self.assertErrorRegex(EasyBuildError, error_pattern, self.modtool.run_module, 'load', 'nosuchmodule/1.2.3')
+
+        # we can choose to blatently ignore the exit code,
+        # and also disable the output check that serves as a fallback
+        self.modtool.run_module('thisdoesnotmakesense', check_exit_code=False, check_output=False)
+        self.modtool.run_module('load', 'nosuchmodule/1.2.3', check_exit_code=False, check_output=False)
+
+        # by default, the output (stdout+stderr) produced by the command is processed;
+        # result is a list of useful info (module names in case of list/avail)
+        res = self.modtool.run_module('list')
+        self.assertEqual(res, [{'mod_name': 'GCC/6.4.0-2.28', 'default': None}])
+
+        res = self.modtool.run_module('avail', 'GCC/4.6')
+        self.assertTrue(isinstance(res, list))
+        self.assertEqual(sorted([x['mod_name'] for x in res]), ['GCC/4.6.3', 'GCC/4.6.4'])
+
+        # loading a module produces no output, so we get an empty list
+        res = self.modtool.run_module('load', 'OpenMPI/2.1.2-GCC-6.4.0-2.28')
+        self.assertEqual(res, [])
+        self.assertEqual(os.environ['EBROOTOPENMPI'], '/prefix/software/OpenMPI/2.1.2-GCC-6.4.0-2.28')
+
+        # we can opt into getting back the raw output (stdout + stderr);
+        # in that cases, the output includes Python statements to change the environment;
+        # the changes that would be made by the module command are *not* applied to the environment
+        out = self.modtool.run_module('load', 'OpenBLAS/0.2.20-GCC-6.4.0-2.28', return_output=True)
+        patterns = [
+            r"^os.environ\[.EBROOTOPENBLAS.\]\s*=\s*./prefix/software/OpenBLAS/0.2.20-GCC-6.4.0-2.28.",
+            r"^os.environ\[.LOADEDMODULES.\]\s*=.*OpenBLAS/0.2.20-GCC-6.4.0-2.28",
+        ]
+        for pattern in patterns:
+            regex = re.compile(pattern, re.M)
+            self.assertTrue(regex.search(out), "Pattern '%s' should be found in: %s" % (regex.pattern, out))
+
+        # OpenBLAS module did *not* get loaded
+        self.assertFalse('EBROOTOPENBLAS' in os.environ)
+        res = self.modtool.list()
+        expected = ['GCC/6.4.0-2.28', 'OpenMPI/2.1.2-GCC-6.4.0-2.28', 'hwloc/1.11.8-GCC-6.4.0-2.28']
+        self.assertEqual(sorted([x['mod_name'] for x in res]), expected)
+
+        # we can also only obtain the stderr output (which contains the user-facing output),
+        # and just drop the stdout output (which contains the statements to change the environment)
+        out = self.modtool.run_module('show', 'OpenBLAS/0.2.20-GCC-6.4.0-2.28', return_stderr=True)
+        patterns = [
+            r"test/framework/modules/OpenBLAS/0.2.20-GCC-6.4.0-2.28:\s*$",
+            r"setenv\W+EBROOTOPENBLAS.+/prefix/software/OpenBLAS/0.2.20-GCC-6.4.0-2.28",
+            r"prepend[_-]path\W+LD_LIBRARY_PATH.+/prefix/software/OpenBLAS/0.2.20-GCC-6.4.0-2.28/lib",
+        ]
+        for pattern in patterns:
+            regex = re.compile(pattern, re.M)
+            self.assertTrue(regex.search(out), "Pattern '%s' should be found in: %s" % (regex.pattern, out))
+
+        # show method only returns user-facing output (obtained via stderr), not changes to the environment
+        regex = re.compile('^os\.environ\[', re.M)
+        self.assertFalse(regex.search(out), "Pattern '%s' should not be found in: %s" % (regex.pattern, out))
 
     def test_avail(self):
         """Test if getting a (restricted) list of available modules works."""
@@ -296,6 +378,25 @@ class ModulesTest(EnhancedTestCase):
         self.modtool.load(['GCC/6.4.0-2.28'], allow_reload=False)
         self.assertEqual(os.environ.get('EBROOTGCC'), None)
         self.assertFalse(loaded_modules[-1] == 'GCC/6.4.0-2.28')
+
+    def test_show(self):
+        """Test for ModulesTool.show method."""
+
+        out = self.modtool.show('GCC/7.3.0-2.30')
+
+        patterns = [
+            # full path to module is included in output of 'show'
+            r"test/framework/modules/GCC/7.3.0-2.30:\s*$",
+            r"setenv\W+EBROOTGCC.+prefix/software/GCC/7.3.0-2.30",
+            r"^prepend[_-]path\W+PATH.+/prefix/software/GCC/7.3.0-2.30/bin",
+        ]
+        for pattern in patterns:
+            regex = re.compile(pattern, re.M)
+            self.assertTrue(regex.search(out), "Pattern '%s' should be found in: %s" % (regex.pattern, out))
+
+        # show method only returns user-facing output (obtained via stderr), not changes to the environment
+        regex = re.compile('^os\.environ\[', re.M)
+        self.assertFalse(regex.search(out), "Pattern '%s' should not be found in: %s" % (regex.pattern, out))
 
     def test_curr_module_paths(self):
         """Test for curr_module_paths function."""
