@@ -273,10 +273,15 @@ class ModulesTest(EnhancedTestCase):
         self.assertTrue('Java/1.8.0_181' in avail_mods)
         if isinstance(self.modtool, Lmod) and StrictVersion(self.modtool.version) >= StrictVersion('7.0'):
             self.assertTrue('Java/1.8' in avail_mods)
+            self.assertTrue('Java/site_default' in avail_mods)
+
         self.assertEqual(self.modtool.exist(['Java/1.8', 'Java/1.8.0_181']), [True, True])
-        # Check for an alias with a different version suffix than the base module
+
+        # check for an alias with a different version suffix than the base module
         self.assertEqual(self.modtool.exist(['Java/site_default']), [True])
+
         self.assertEqual(self.modtool.module_wrapper_exists('Java/1.8'), 'Java/1.8.0_181')
+        self.assertEqual(self.modtool.module_wrapper_exists('Java/site_default'), 'Java/1.8.0_181')
 
         reset_module_caches()
 
@@ -289,6 +294,7 @@ class ModulesTest(EnhancedTestCase):
         self.assertEqual(self.modtool.exist(['Core/Java/1.8']), [True])
         self.assertEqual(self.modtool.exist(['Core/Java/site_default']), [True])
         self.assertEqual(self.modtool.module_wrapper_exists('Core/Java/1.8'), 'Core/Java/1.8.0_181')
+        self.assertEqual(self.modtool.module_wrapper_exists('Core/Java/site_default'), 'Core/Java/1.8.0_181')
 
         # also check with .modulerc.lua for Lmod 7.8 or newer
         if isinstance(self.modtool, Lmod) and StrictVersion(self.modtool.version) >= StrictVersion('7.8'):
@@ -306,9 +312,12 @@ class ModulesTest(EnhancedTestCase):
             self.assertTrue('Java/1.8.0_181' in avail_mods)
             self.assertTrue('Java/1.8' in avail_mods)
             self.assertEqual(self.modtool.exist(['Java/1.8', 'Java/1.8.0_181']), [True, True])
-            # Check for an alias with a different version suffix than the base module
+
+            # check for an alias with a different version suffix than the base module
             self.assertEqual(self.modtool.exist(['Java/site_default']), [True])
+
             self.assertEqual(self.modtool.module_wrapper_exists('Java/1.8'), 'Java/1.8.0_181')
+            self.assertEqual(self.modtool.module_wrapper_exists('Java/site_default'), 'Java/1.8.0_181')
 
             reset_module_caches()
 
@@ -319,6 +328,7 @@ class ModulesTest(EnhancedTestCase):
             self.assertEqual(self.modtool.exist(['Core/Java/1.8']), [True])
             self.assertEqual(self.modtool.exist(['Core/Java/site_default']), [True])
             self.assertEqual(self.modtool.module_wrapper_exists('Core/Java/1.8'), 'Core/Java/1.8.0_181')
+            self.assertEqual(self.modtool.module_wrapper_exists('Core/Java/site_default'), 'Core/Java/1.8.0_181')
 
     def test_load(self):
         """ test if we load one module it is in the loaded_modules """
