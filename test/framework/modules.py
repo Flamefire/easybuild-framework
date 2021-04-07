@@ -1333,6 +1333,19 @@ class ModulesTest(EnhancedTestCase):
 
         os.environ['MODULEPATH'] = old_module_path  # Restore
 
+        # Forcing to use the module command reloads modules (Only Lmod does this)
+        old_module_path = os.environ['MODULEPATH']
+        os.environ['MODULEPATH'] = test_dir1
+        self.assertFalse('TEST123' in os.environ)
+        self.modtool.load(['test'])
+        self.assertEqual(os.getenv('TEST123'), 'one')
+        self.modtool.use(test_dir2, force_module_command=True)
+        self.assertEqual(os.getenv('TEST123'), 'two')  # Module reloaded
+        self.modtool.unuse(test_dir2, force_module_command=True)
+        self.assertEqual(os.getenv('TEST123'), 'one')  # Module reloaded
+        self.modtool.unload(['test'])
+        os.environ['MODULEPATH'] = old_module_path  # Restore
+
     def test_module_use_bash(self):
         """Test whether effect of 'module use' is preserved when a new bash session is started."""
         # this test is here as check for a nasty bug in how the modules tool is deployed
