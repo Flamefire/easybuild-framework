@@ -51,7 +51,7 @@ from easybuild.framework.easyconfig.parser import EasyConfigParser
 from easybuild.tools.build_log import EasyBuildError
 from easybuild.tools.config import get_module_syntax, get_repositorypath
 from easybuild.tools.environment import modify_env
-from easybuild.tools.filetools import adjust_permissions, change_dir, copy_file, mkdir
+from easybuild.tools.filetools import adjust_permissions, change_dir, copy_file, mkdir, move_file
 from easybuild.tools.filetools import read_file, remove_dir, remove_file, which, write_file
 from easybuild.tools.module_generator import ModuleGeneratorTcl
 from easybuild.tools.modules import Lmod
@@ -1190,8 +1190,8 @@ class ToyBuildTest(EnhancedTestCase):
         archived_patch_file = os.path.join(repositorypath, 'toy', 'toy-0.0_fix-silly-typo-in-printf-statement.patch')
         self.assertTrue(os.path.isfile(archived_patch_file))
 
-    def test_toy_extension_patches(self):
-        """Test install toy that includes extensions with patches."""
+    def test_toy_extension_patches_postinstallcmds(self):
+        """Test install toy that includes extensions with patches and postinstallcmds."""
         test_ecs = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'easyconfigs', 'test_ecs')
         toy_ec = os.path.join(test_ecs, 't', 'toy', 'toy-0.0.eb')
         toy_ec_txt = read_file(toy_ec)
@@ -1210,12 +1210,24 @@ class ToyBuildTest(EnhancedTestCase):
             '           ("bar-0.0_fix-very-silly-typo-in-printf-statement.patch", 0),',  # patch with patch level
             '           ("test.txt", "."),',  # file to copy to build dir (not a real patch file)
             '       ],',
+            '       "postinstallcmds": ["touch %(installdir)s/created-via-postinstallcmds.txt"],',
             '   }),',
             ']',
         ])
         write_file(test_ec, test_ec_txt)
 
         self.test_toy_build(ec_file=test_ec)
+
+        installdir = os.path.join(self.test_installpath, 'software', 'toy', '0.0')
+
+        # make sure that patches were actually applied (without them the message producded by 'bar' is different)
+        bar_bin = os.path.join(installdir, 'bin', 'bar')
+        out, _ = run_cmd(bar_bin)
+        self.assertEqual(out, "I'm a bar, and very very proud of it.\n")
+
+        # verify that post-install command for 'bar' extension was executed
+        fn = 'created-via-postinstallcmds.txt'
+        self.assertTrue(os.path.exists(os.path.join(installdir, fn)))
 
     def test_toy_extension_sources(self):
         """Test install toy that includes extensions with 'sources' spec (as single-item list)."""
@@ -1681,6 +1693,64 @@ class ToyBuildTest(EnhancedTestCase):
             # make sure load statements for dependencies are included
             modtxt = read_file(toy_mod + '.lua')
             self.assertTrue(re.search('load.*intel/2018a', modtxt), "load statement for intel/2018a found in module")
+
+    def test_module_only_extensions(self):
+        """
+        Test use of --module-only with extensions involved.
+        Sanity check should catch problems with extensions,
+        extensions can be skipped using --skip-exts.
+        """
+        topdir = os.path.abspath(os.path.dirname(__file__))
+        toy_ec = os.path.join(topdir, 'easyconfigs', 'test_ecs', 't', 'toy', 'toy-0.0.eb')
+
+        toy_mod = os.path.join(self.test_installpath, 'modules', 'all', 'toy', '0.0')
+        if get_module_syntax() == 'Lua':
+            toy_mod += '.lua'
+
+        test_ec = os.path.join(self.test_prefix, 'test.ec')
+        test_ec_txt = read_file(toy_ec)
+        test_ec_txt += '\n' + '\n'.join([
+            "sanity_check_commands = ['barbar', 'toy']",
+            "sanity_check_paths = {'files': ['bin/barbar', 'bin/toy'], 'dirs': ['bin']}",
+            "exts_list = [",
+            "    ('barbar', '0.0', {",
+            "        'start_dir': 'src',",
+            "        'exts_filter': ('ls -l lib/lib%(ext_name)s.a', ''),",
+            "    })",
+            "]",
+        ])
+        write_file(test_ec, test_ec_txt)
+
+        # clean up $MODULEPATH so only modules in test prefix dir are found
+        self.reset_modulepath([os.path.join(self.test_installpath, 'modules', 'all')])
+        self.assertEqual(self.modtool.available('toy'), [])
+
+        # install toy/0.0
+        self.eb_main([test_ec], do_build=True, raise_error=True)
+
+        # remove module file so we can try --module-only
+        remove_file(toy_mod)
+
+        # rename file required for barbar extension, so we can check whether sanity check catches it
+        libbarbar = os.path.join(self.test_installpath, 'software', 'toy', '0.0', 'lib', 'libbarbar.a')
+        move_file(libbarbar, libbarbar + '.foobar')
+
+        # check whether sanity check fails now when using --module-only
+        error_pattern = 'Sanity check failed: command "ls -l lib/libbarbar.a" failed'
+        for extra_args in (['--module-only'], ['--module-only', '--rebuild']):
+            self.assertErrorRegex(EasyBuildError, error_pattern, self.eb_main, [test_ec] + extra_args,
+                                  do_build=True, raise_error=True)
+        self.assertFalse(os.path.exists(toy_mod))
+
+        # failing sanity check for barbar extension is ignored when using --module-only --skip-extensions
+        for extra_args in (['--module-only'], ['--module-only', '--rebuild']):
+            self.eb_main([test_ec, '--skip-extensions'] + extra_args, do_build=True, raise_error=True)
+            self.assertTrue(os.path.exists(toy_mod))
+            remove_file(toy_mod)
+
+        # we can force module generation via --force (which skips sanity check entirely)
+        self.eb_main([test_ec, '--module-only', '--force'], do_build=True, raise_error=True)
+        self.assertTrue(os.path.exists(toy_mod))
 
     def test_backup_modules(self):
         """Test use of backing up of modules with --module-only."""
@@ -2555,6 +2625,7 @@ class ToyBuildTest(EnhancedTestCase):
                 r"== sanity checking\.\.\.",
                 r"  >> file 'bin/yot' or 'bin/toy' found: OK",
                 r"  >> \(non-empty\) directory 'bin' found: OK",
+                r"  >> loading modules: toy/0.0\.\.\.",
                 r"  >> running command 'toy' \.\.\.",
                 r"  >> result for command 'toy': OK",
             ]) + r'$',
