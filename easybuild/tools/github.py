@@ -589,13 +589,19 @@ def fetch_files_from_pr(pr, path=None, github_user=None, github_account=None, gi
             raise EasyBuildError("Couldn't find path to patched file %s", full_path)
 
     if github_repo == GITHUB_EASYCONFIGS_REPO:
-        ver = _get_version_for_repo(os.path.join(final_path, 'setup.py'))
+        ver_file = os.path.join(final_path, 'setup.py')
     elif github_repo == GITHUB_EASYBLOCKS_REPO:
-        ver = _get_version_for_repo(os.path.join(final_path, 'easybuild', 'easyblocks', '__init__.py'))
+        ver_file = os.path.join(final_path, 'easybuild', 'easyblocks', '__init__.py')
+    else:
+        raise EasyBuildError("Don't know how to determine version for repo %s", github_repo)
 
-    if different_major_versions(FRAMEWORK_VERSION, ver):
-        raise EasyBuildError("Framework (%s) is a different major version than used in %s/%s PR #%s (%s)",
-                             FRAMEWORK_VERSION, github_account, github_repo, pr, ver)
+    # take into account that the file we need to determine repo version may not be available,
+    # for example when a closed PR is used (since then we only download files patched by the PR)
+    if os.path.exists(ver_file):
+        ver = _get_version_for_repo(ver_file)
+        if different_major_versions(FRAMEWORK_VERSION, ver):
+            raise EasyBuildError("Framework (%s) is a different major version than used in %s/%s PR #%s (%s)",
+                                 FRAMEWORK_VERSION, github_account, github_repo, pr, ver)
 
     return files
 
@@ -643,6 +649,13 @@ def fetch_files_from_commit(commit, files=None, path=None, github_account=None, 
     if github_repo is None:
         github_repo = GITHUB_EASYCONFIGS_REPO
 
+    if github_repo == GITHUB_EASYCONFIGS_REPO:
+        easybuild_subdir = os.path.join('easybuild', 'easyconfigs')
+    elif github_repo == GITHUB_EASYBLOCKS_REPO:
+        easybuild_subdir = os.path.join('easybuild', 'easyblocks')
+    else:
+        raise EasyBuildError("Unknown repo: %s", github_repo)
+
     if path is None:
         if github_repo == GITHUB_EASYCONFIGS_REPO:
             extra_ec_paths = build_option('extra_ec_paths')
@@ -685,6 +698,12 @@ def fetch_files_from_commit(commit, files=None, path=None, github_account=None, 
         files_subdir = 'easybuild/easyblocks/'
     else:
         raise EasyBuildError("Unknown repo: %s" % github_repo)
+
+    # symlink subdirectories of 'easybuild/easy{blocks,configs}' into path that gets added to robot search path
+    mkdir(path, parents=True)
+    dirpath = os.path.join(repo_commit, easybuild_subdir)
+    for subdir in os.listdir(dirpath):
+        symlink(os.path.join(dirpath, subdir), os.path.join(path, subdir))
 
     # copy specified files to directory where they're expected to be found
     file_paths = []
