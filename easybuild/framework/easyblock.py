@@ -2887,6 +2887,19 @@ class EasyBlock(object):
             self.log.debug("No extensions in exts_list")
             return
 
+        self.prepare_for_extensions()
+
+        if fetch:
+            self.update_exts_progress_bar("fetching extension sources/patches")
+            self.exts = self.collect_exts_file_info(fetch_files=True)
+
+        self.exts_all = self.exts[:]  # retain a copy of all extensions, regardless of filtering/skipping
+
+        # we really need a default class
+        if not self.cfg['exts_defaultclass']:
+            raise EasyBuildError("ERROR: No default extension class set for %s", self.name)
+        self.init_ext_instances()
+
         # load fake module
         fake_mod_data = None
         if install and not self.dry_run:
@@ -2898,24 +2911,9 @@ class EasyBlock(object):
 
         start_progress_bar(PROGRESS_BAR_EXTENSIONS, len(self.cfg['exts_list']))
 
-        self.prepare_for_extensions()
-
-        if fetch:
-            self.update_exts_progress_bar("fetching extension sources/patches")
-            self.exts = self.collect_exts_file_info(fetch_files=True)
-
-        self.exts_all = self.exts[:]  # retain a copy of all extensions, regardless of filtering/skipping
-
         # actually install extensions
         if install:
             self.log.info("Installing extensions")
-
-        # we really need a default class
-        if not self.cfg['exts_defaultclass'] and fake_mod_data:
-            self.clean_up_fake_module(fake_mod_data)
-            raise EasyBuildError("ERROR: No default extension class set for %s", self.name)
-
-        self.init_ext_instances()
 
         if self.skip:
             self.skip_extensions()
