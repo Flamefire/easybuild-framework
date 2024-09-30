@@ -2470,7 +2470,7 @@ class FileToolsTest(EnhancedTestCase):
         # load_index just returns None if there is no index in specified directory
         self.assertEqual(ft.load_index(self.test_prefix), None)
 
-        num_files = len(glob.glob(test_ecs + '/**/*.*', recursive=True))
+        num_files = sum(len(files) for _, _, files in os.walk(test_ecs))
 
         # create index for test easyconfigs;
         # test with specified path with and without trailing '/'s
