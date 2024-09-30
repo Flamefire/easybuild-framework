@@ -951,6 +951,7 @@ class CommandLineOptionsTest(EnhancedTestCase):
             expected = '\n'.join([
                 r'EasyBlock',
                 r'\|-- bar',
+                r'\|-- Cargo',
                 r'\|-- ConfigureMake',
                 r'\|   \|-- MakeCp',
                 r'\|-- EB_EasyBuildMeta',
