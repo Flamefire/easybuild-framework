@@ -85,11 +85,7 @@ from test.framework.utilities import find_full_path
 try:
     import pycodestyle  # noqa
 except ImportError:
-    try:
-        import pep8  # noqa
-    except ImportError:
-        pass
-
+    pass
 
 EXPECTED_DOTTXT_TOY_DEPS = """digraph graphname {
 toy;
@@ -2659,8 +2655,8 @@ class EasyConfigTest(EnhancedTestCase):
     def test_dump_extra(self):
         """Test EasyConfig's dump() method for files containing extra values"""
 
-        if not ('pycodestyle' in sys.modules or 'pep8' in sys.modules):
-            print("Skipping test_dump_extra (no pycodestyle or pep8 available)")
+        if 'pycodestyle' not in sys.modules:
+            print("Skipping test_dump_extra pycodestyle is not available")
             return
 
         rawtxt = '\n'.join([
@@ -2702,8 +2698,8 @@ class EasyConfigTest(EnhancedTestCase):
     def test_dump_template(self):
         """ Test EasyConfig's dump() method for files containing templates"""
 
-        if not ('pycodestyle' in sys.modules or 'pep8' in sys.modules):
-            print("Skipping test_dump_template (no pycodestyle or pep8 available)")
+        if 'pycodestyle' not in sys.modules:
+            print("Skipping test_dump_template pycodestyle is not available")
             return
 
         rawtxt = '\n'.join([
@@ -2791,8 +2787,8 @@ class EasyConfigTest(EnhancedTestCase):
     def test_dump_comments(self):
         """ Test dump() method for files containing comments """
 
-        if not ('pycodestyle' in sys.modules or 'pep8' in sys.modules):
-            print("Skipping test_dump_comments (no pycodestyle or pep8 available)")
+        if 'pycodestyle' not in sys.modules:
+            print("Skipping test_dump_comments pycodestyle is not available")
             return
 
         rawtxt = '\n'.join([
@@ -4785,6 +4781,10 @@ class EasyConfigTest(EnhancedTestCase):
         toy_ec = os.path.join(test_ecs_dir, 'f', 'foss', 'foss-2018a.eb')
         test_ec = os.path.join(self.test_prefix, 'test.eb')
         test_ec_txt = read_file(toy_ec)
+
+        # this test only makes sense if depends_on is not used
+        self.allow_deprecated_behaviour()
+        test_ec_txt += '\nmodule_depends_on = False'
         write_file(test_ec, test_ec_txt)
 
         test_module = os.path.join(self.test_installpath, 'modules', 'all', 'foss', '2018a')
@@ -4827,6 +4827,8 @@ class EasyConfigTest(EnhancedTestCase):
         # recursive_module_unload easyconfig parameter is honored
         test_ec_bis = os.path.join(self.test_prefix, 'test_bis.eb')
         test_ec_bis_txt = read_file(toy_ec) + '\nrecursive_module_unload = True'
+        # this test only makes sense if depends_on is not used
+        test_ec_bis_txt += '\nmodule_depends_on = False'
         write_file(test_ec_bis, test_ec_bis_txt)
 
         ec_bis = EasyConfig(test_ec_bis)
@@ -4871,6 +4873,8 @@ class EasyConfigTest(EnhancedTestCase):
         self.assertTrue(build_option('recursive_mod_unload'))
         test_ec_bis = os.path.join(self.test_prefix, 'test_bis.eb')
         test_ec_bis_txt = read_file(toy_ec) + '\nrecursive_module_unload = False'
+        # this test only makes sense if depends_on is not used
+        test_ec_bis_txt += '\nmodule_depends_on = False'
         write_file(test_ec_bis, test_ec_bis_txt)
         ec_bis = EasyConfig(test_ec_bis)
         self.assertEqual(ec_bis['recursive_module_unload'], False)
