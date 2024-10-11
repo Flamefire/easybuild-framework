@@ -2701,10 +2701,13 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
         git_cmd = 'git'
     clone_cmd = [git_cmd, 'clone']
 
-    if not keep_git_dir and not commit:
+    if keep_git_dir:
+        depth_args = []
+    else:
         # Speed up cloning by only fetching the most recent commit, not the whole history
         # When we don't want to keep the .git folder there won't be a difference in the result
-        clone_cmd.extend(['--depth', '1'])
+        depth_args = ['--depth=1']
+    clone_cmd.extend(depth_args)
 
     if tag:
         clone_cmd.extend(['--branch', tag])
@@ -2716,7 +2719,8 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
         # checkout is done separately below for specific commits
         clone_cmd.append('--no-checkout')
 
-    clone_cmd.append('%s/%s.git' % (url, repo_name))
+    repo_url = '%s/%s.git' % (url, repo_name)
+    clone_cmd.append(repo_url)
 
     if clone_into:
         clone_cmd.append(clone_into)
@@ -2731,6 +2735,9 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
 
     # if a specific commit is asked for, check it out
     if commit:
+        # The commit might not be reachable from the default branch that is fetched, so fetch it explicitely
+        fetch_cmd = [git_cmd, 'fetch', repo_url, commit]
+        fetch_cmd.extend(depth_args)
         checkout_cmd = [git_cmd, 'checkout', commit]
 
         if recursive or recurse_submodules:
@@ -2740,7 +2747,8 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
             if recurse_submodules:
                 checkout_cmd.extend(["--recurse-submodules='%s'" % pat for pat in recurse_submodules])
 
-        run.run_cmd(' '.join(checkout_cmd), log_all=True, simple=True, regexp=False, path=repo_name)
+        cmd = ' '.join(fetch_cmd) + ' && ' + ' '.join(checkout_cmd)
+        run.run_cmd(cmd, log_all=True, simple=True, regexp=False, path=repo_name)
 
     elif not build_option('extended_dry_run'):
         # If we wanted to get a tag make sure we actually got a tag and not a branch with the same name
