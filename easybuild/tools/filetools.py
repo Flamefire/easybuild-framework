@@ -2701,11 +2701,13 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
         git_cmd = 'git'
     clone_cmd = [git_cmd, 'clone']
 
-    if keep_git_dir:
+    is_short_commit_hash = commit and len(commit) != 40
+    if keep_git_dir or is_short_commit_hash:
         depth_args = []
     else:
         # Speed up cloning by only fetching the most recent commit, not the whole history
         # When we don't want to keep the .git folder there won't be a difference in the result
+        # We also can't use it if only a short commit hash is given, as `git fetch` only works with full commit hashe
         depth_args = ['--depth=1']
     clone_cmd.extend(depth_args)
 
@@ -2736,8 +2738,11 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
     # if a specific commit is asked for, check it out
     if commit:
         # The commit might not be reachable from the default branch that is fetched, so fetch it explicitely
-        fetch_cmd = [git_cmd, 'fetch', repo_url, commit]
-        fetch_cmd.extend(depth_args)
+        # Only works for long commit hashes
+        if not is_short_commit_hash:
+            fetch_cmd = [git_cmd, 'fetch'] + depth_args + [repo_url, commit]
+            run.run_cmd(' '.join(fetch_cmd), log_all=True, simple=True, regexp=False, path=repo_name)
+
         checkout_cmd = [git_cmd, 'checkout', commit]
 
         if recursive or recurse_submodules:
@@ -2747,8 +2752,7 @@ def get_source_tarball_from_git(filename, targetdir, git_config):
             if recurse_submodules:
                 checkout_cmd.extend(["--recurse-submodules='%s'" % pat for pat in recurse_submodules])
 
-        cmd = ' '.join(fetch_cmd) + ' && ' + ' '.join(checkout_cmd)
-        run.run_cmd(cmd, log_all=True, simple=True, regexp=False, path=repo_name)
+        run.run_cmd(' '.join(checkout_cmd), log_all=True, simple=True, regexp=False, path=repo_name)
 
     elif not build_option('extended_dry_run'):
         # If we wanted to get a tag make sure we actually got a tag and not a branch with the same name
