@@ -1014,7 +1014,7 @@ class Toolchain:
             return False
         # Check if `rpath_args`` is called in the file
         # need to use binary mode to read the file, since it may be an actual compiler command (which is a binary file)
-        return b'rpath_args.py $CMD' in read_file(path, mode='rb')
+        return b"rpath_args.py '$CMD'" in read_file(path, mode='rb')
 
     def prepare_rpath_wrappers(self, rpath_filter_dirs=None, rpath_include_dirs=None, rpath_wrappers_dir=None):
         """
