@@ -2726,7 +2726,7 @@ class FileToolsTest(EnhancedTestCase):
             ft.empty_dir(test_dir)
             txt = self.get_stdout()
 
-        self.assertRegEx(txt, "^directory [^ ]* emptied$")
+        self.assertRegex(txt, "^directory [^ ]* emptied$")
 
     def test_remove(self):
         """Test remove_file, remove_dir and join remove functions."""
