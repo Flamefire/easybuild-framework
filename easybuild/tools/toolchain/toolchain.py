@@ -656,8 +656,13 @@ class Toolchain:
         tc_mod = None if system_toolchain else self.det_short_module_name()
         # For SYSTEM software we allow using dependencies from any toolchain so we need to use the full
         # module name to allow loading them in the hierarchical MNS
-        mod_name_key = 'full_mod_name' if self.is_system_toolchain() else 'short_mod_name'
-        dep_mods = [dep[mod_name_key] for dep in self.dependencies]
+        is_system_toolchain = self.is_system_toolchain()
+
+        def get_module_name(dep):
+            key = 'full_mod_name' if is_system_toolchain and not dep[SYSTEM_TOOLCHAIN_NAME] else 'short_mod_name'
+            return dep[key]
+
+        dep_mods = [get_module_name(dep) for dep in self.dependencies]
 
         mods_to_load = []
 
@@ -691,7 +696,7 @@ class Toolchain:
 
             # load available modules for dependencies, simulate load for others
             for dep, dep_mod_exists in zip(self.dependencies, mods_exist):
-                mod_name = dep[mod_name_key]
+                mod_name = get_module_name(dep)
                 self.modules.append(mod_name)
                 if dep_mod_exists:
                     mods_to_load.append(mod_name)
@@ -722,7 +727,7 @@ class Toolchain:
             self.log.debug(f"Loading modules for dependencies: {' '.join(dep_mods)}")
             mods_to_load.extend(dep_mods)
             if dep_mods:
-                build_dep_mods = [dep[mod_name_key] for dep in self.dependencies if dep['build_only']]
+                build_dep_mods = [get_module_name(dep) for dep in self.dependencies if dep['build_only']]
                 if build_dep_mods:
                     trace_msg("loading modules for build dependencies:")
                     for dep_mod in build_dep_mods:
@@ -730,7 +735,7 @@ class Toolchain:
                 else:
                     trace_msg("(no build dependencies specified)")
 
-                run_dep_mods = [dep[mod_name_key] for dep in self.dependencies if not dep['build_only']]
+                run_dep_mods = [get_module_name(dep) for dep in self.dependencies if not dep['build_only']]
                 if run_dep_mods:
                     trace_msg("loading modules for (runtime) dependencies:")
                     for dep_mod in run_dep_mods:
@@ -788,7 +793,7 @@ class Toolchain:
         self.log.debug("List of toolchain dependencies from toolchain module: %s", self.toolchain_dep_mods)
 
         # only retain names of toolchain elements, excluding toolchain name
-        toolchain_definition = {e for es in self.definition().values() for e in es if not e == self.name}
+        toolchain_definition = {e for es in self.definition().values() for e in es if e != self.name}
 
         # filter out optional toolchain elements if they're not used in the module
         for elem_name in toolchain_definition.copy():
