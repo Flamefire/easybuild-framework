@@ -199,7 +199,7 @@ jobs:
             fi
 
             # run test suite
-            python -O -m test.framework.suite 2>&1 | tee test_framework_suite.log
+            python -O -m test.framework.suite --verbose 2>&1 | tee test_framework_suite.log
             # try and make sure output of running tests is clean (no printed messages/warnings)
             IGNORE_PATTERNS="no GitHub token available"
             IGNORE_PATTERNS+="|stty: 'standard input': Inappropriate ioctl for device"
