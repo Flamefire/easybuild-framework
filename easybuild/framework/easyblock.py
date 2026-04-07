@@ -1051,64 +1051,18 @@ class EasyBlock:
 
             mkdir(targetdir, parents=True)
 
-            for url in source_urls:
+            if extension:
+                target_path = os.path.join(targetdir, "extensions", filename)
+            else:
+                target_path = os.path.join(targetdir, filename)
+            downloaded, failed_urls = self.download_file(target_path, download_filename=download_filename or filename,
+                                                         urls=source_urls,
+                                                         # Only log when extensions have explicit URLs
+                                                         log_url_in_dry_run=extension and urls)
+            if downloaded:
+                return target_path
 
-                if extension:
-                    targetpath = os.path.join(targetdir, "extensions", filename)
-                else:
-                    targetpath = os.path.join(targetdir, filename)
-
-                url_filename = download_filename or filename
-
-                if isinstance(url, str):
-                    if url[-1] in ['=', '/']:
-                        fullurl = "%s%s" % (url, url_filename)
-                    else:
-                        fullurl = "%s/%s" % (url, url_filename)
-                elif isinstance(url, tuple):
-                    # URLs that require a suffix, e.g., SourceForge download links
-                    # e.g. http://sourceforge.net/projects/math-atlas/files/Stable/3.8.4/atlas3.8.4.tar.bz2/download
-                    fullurl = "%s/%s/%s" % (url[0], url_filename, url[1])
-                else:
-                    self.log.warning("Source URL %s is of unknown type, so ignoring it." % url)
-                    continue
-
-                # PyPI URLs may need to be converted due to change in format of these URLs,
-                # cfr. https://bitbucket.org/pypa/pypi/issues/438
-                if PYPI_PKG_URL_PATTERN in fullurl and not is_alt_pypi_url(fullurl):
-                    alt_url = derive_alt_pypi_url(fullurl)
-                    if alt_url:
-                        _log.debug("Using alternative PyPI URL for %s: %s", fullurl, alt_url)
-                        fullurl = alt_url
-                    else:
-                        _log.debug("Failed to derive alternative PyPI URL for %s, so retaining the original",
-                                   fullurl)
-
-                if self.dry_run:
-                    self.dry_run_msg("  * %s will be downloaded to %s", filename, targetpath)
-                    if extension and urls:
-                        # extensions typically have custom source URLs specified, only mention first
-                        self.dry_run_msg("    (from %s, ...)", fullurl)
-                    downloaded = True
-
-                else:
-                    self.log.debug("Trying to download file %s from %s to %s ..." % (filename, fullurl, targetpath))
-                    downloaded = False
-                    try:
-                        if download_file(filename, fullurl, targetpath):
-                            downloaded = True
-
-                    except IOError as err:
-                        self.log.debug("Failed to download %s from %s: %s" % (filename, url, err))
-                        failedpaths.append(fullurl)
-                        continue
-
-                if downloaded:
-                    # if fetching from source URL worked, we're done
-                    self.log.info("Successfully downloaded source file %s from %s" % (filename, fullurl))
-                    return targetpath
-                else:
-                    failedpaths.append(fullurl)
+            failedpaths.extend(failed_urls)
 
             if self.dry_run:
                 self.dry_run_msg("  * %s (MISSING)", filename)
@@ -1134,6 +1088,68 @@ class EasyBlock:
                 else:
                     self.log.warning(error_msg, filename)
                     return None
+
+    def download_file(self, target_path, download_filename, urls, log_url_in_dry_run):
+        """Try downloading a file from multiple source URLs, until one works.
+
+        :param target_path: Full path where the file should be stored (including filename)
+        :param download_filename: Name of the file on the server (which may differ from the target filename)
+        :param source_urls: list of URLs to try downloading from
+        :param log_url_in_dry_run: whether to log each URL in dry-run mode
+
+        Returns a tuple of (success, failed_urls), where
+            success is True if the file was successfully downloaded from any of the source URLs
+            failed_urls is a list of (full) URLs that were attempted but failed to download from
+        """
+        failed_urls = []
+        filename = os.path.basename(target_path)
+        for url in urls:
+            if isinstance(url, str):
+                if url[-1] in ['=', '/']:
+                    full_url = "%s%s" % (url, download_filename)
+                else:
+                    full_url = "%s/%s" % (url, download_filename)
+            elif isinstance(url, tuple):
+                # URLs that require a suffix, e.g., SourceForge download links
+                # e.g. http://sourceforge.net/projects/math-atlas/files/Stable/3.8.4/atlas3.8.4.tar.bz2/download
+                full_url = "%s/%s/%s" % (url[0], download_filename, url[1])
+            else:
+                self.log.warning("Source URL %s is of unknown type, so ignoring it." % url)
+                continue
+
+            # PyPI URLs may need to be converted due to change in format of these URLs,
+            # cfr. https://bitbucket.org/pypa/pypi/issues/438
+            if PYPI_PKG_URL_PATTERN in full_url and not is_alt_pypi_url(full_url):
+                alt_url = derive_alt_pypi_url(full_url)
+                if alt_url:
+                    _log.debug("Using alternative PyPI URL for %s: %s", full_url, alt_url)
+                    full_url = alt_url
+                else:
+                    _log.debug("Failed to derive alternative PyPI URL for %s, so retaining the original",
+                               full_url)
+
+            if self.dry_run:
+                msg = f"  * {filename} will be downloaded to {target_path}"
+                if log_url_in_dry_run:
+                    msg += f" from {full_url}"
+                self.dry_run_msg(msg)
+                downloaded = True
+
+            else:
+                self.log.debug("Trying to download file %s from %s to %s ..." % (filename, full_url, target_path))
+                try:
+                    downloaded = download_file(filename, full_url, target_path)
+                except IOError as err:
+                    self.log.debug("Failed to download %s from %s: %s" % (filename, url, err))
+                    downloaded = False
+
+            if downloaded:
+                # if fetching from source URL worked, we're done
+                self.log.info("Successfully downloaded source file %s from %s" % (filename, full_url))
+                return True, failed_urls
+            else:
+                failed_urls.append(full_url)
+        return False, failed_urls
 
     #
     # GETTER/SETTER UTILITY FUNCTIONS
