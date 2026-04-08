@@ -1338,6 +1338,21 @@ class EasyBlockTest(EnhancedTestCase):
         self.assertIn('Test case success', log_txt)
         self.assertIn('Test case failure', log_txt)
 
+        # Test is found when put next to easyconfig file, and preferred
+        new_mock_test_bin = os.path.join(os.path.dirname(self.eb_file), os.path.basename(mock_test_bin))
+        write_file(new_mock_test_bin, '#!/bin/bash\necho "new test passed"')
+        new_mock_test_bin2 = os.path.join(os.path.dirname(self.eb_file), 'example_test2')
+        write_file(new_mock_test_bin2, '#!/bin/bash\necho "additional test passed"')
+        eb.cfg['tests'] = [os.path.basename(new_mock_test_bin), os.path.basename(new_mock_test_bin2)]
+
+        write_file(eb.logfile, '')  # reset log file
+        eb.test_cases_step()
+        logtxt = read_file(eb.logfile)
+        self.assertIn(f'Running test {new_mock_test_bin}', logtxt)
+        self.assertIn(f'Running test {new_mock_test_bin2}', logtxt)
+        self.assertIn("new test passed", logtxt)
+        self.assertIn("additional test passed", logtxt)
+
     def test_post_processing_step(self):
         """Test post_processing_step and deprecated post_install_step."""
         init_config(build_options={'silent': True})

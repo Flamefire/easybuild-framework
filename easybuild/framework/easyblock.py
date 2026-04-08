@@ -4707,14 +4707,9 @@ class EasyBlock:
             if os.path.isabs(test):
                 test_cmd = test
             else:
-                for source_path in source_paths():
-                    test_cmd = os.path.join(source_path, self.name, test)
-                    if os.path.exists(test_cmd):
-                        break
-                else:
-                    test_cmd = test
+                test_cmd = self.obtain_file(test, no_download=True, warning_only=True) or test
             if not os.path.exists(test_cmd):
-                raise EasyBuildError(f"Test specifies non-existing path: {test_cmd}")
+                raise EasyBuildError(f"Test specifies non-existing path: {test}")
 
             if os.path.isfile(test_cmd):
                 original_perms = os.lstat(test_cmd).st_mode
@@ -4724,8 +4719,8 @@ class EasyBlock:
                     adjust_permissions(test_cmd, stat.S_IEXEC, add=True, recursive=False)
             else:
                 original_perms = None
+            self.log.debug(f"Running test {test_cmd}")
             try:
-                self.log.debug(f"Running test {test_cmd}")
                 run_shell_cmd(test_cmd)
             except RunShellCmdError:
                 raise  # Let that propagate which will report more information
