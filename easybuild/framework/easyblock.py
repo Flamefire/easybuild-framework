@@ -4725,6 +4725,7 @@ class EasyBlock:
             else:
                 original_perms = None
             try:
+                self.log.debug(f"Running test {test_cmd}")
                 run_shell_cmd(test_cmd)
             except RunShellCmdError:
                 raise  # Let that propagate which will report more information

@@ -639,7 +639,7 @@ class RunTest(EnhancedTestCase):
             # check error reporting output when stdout/stderr are collected separately
             try:
                 run_shell_cmd(cmd, split_stderr=True)
-                self.assertFalse("This should never be reached, RunShellCmdError should occur!")
+                self.fail("This should never be reached, RunShellCmdError should occur!")
             except RunShellCmdError as err:
                 self.assertEqual(str(err), "Shell command 'kill' failed!")
                 self.assertEqual(err.cmd, "kill -9 $$")
