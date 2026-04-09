@@ -501,8 +501,12 @@ def template_constant_dict(config, ignore=None, toolchain=None):
     #         Use the commandline / easybuild config option if given, else use the value from the EC (as a default)
     cuda_cc = build_option('cuda_compute_capabilities') or config.get('cuda_compute_capabilities')
     if cuda_cc:
-        # Sort ascending for uniform behavior also avoiding e.g. cudaErrorInvalidDeviceFunction in some situations
-        cuda_cc = sorted(cuda_cc, key=LooseVersion)
+        if not isinstance(cuda_cc, (list, tuple, set)):
+            raise EasyBuildError("Invalid type of cuda_compute_capabilities(=%s): %s. Expected list, tuple or set.",
+                                 cuda_cc, type(cuda_cc).__name__)
+        # Deduplicate and sort values ascending
+        # for uniform behavior also avoiding e.g. cudaErrorInvalidDeviceFunction in some situations
+        cuda_cc = sorted(set(cuda_cc), key=LooseVersion)
         template_values['cuda_compute_capabilities'] = ','.join(cuda_cc)
         template_values['cuda_cc_space_sep'] = ' '.join(cuda_cc)
         template_values['cuda_cc_space_sep_no_period'] = ' '.join(cc.replace('.', '') for cc in cuda_cc)
