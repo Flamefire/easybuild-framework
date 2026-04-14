@@ -1051,20 +1051,27 @@ class EasyBlock:
             failedpaths.extend(failed_urls)
 
             # Usual PYPI sources have a format of '<name>-version.ext', with '<name>' has dashes replaced by underscores
-            num_dashes = download_filename.count('-')
-            if num_dashes >= 2 and any(PYPI_PKG_URL_PATTERN in url for url in source_urls):
+            if download_filename.count('-') >= 2 and any(PYPI_PKG_URL_PATTERN in url for url in source_urls):
                 # Last dash is the separator between name and version
-                alt_download_filename = download_filename.replace('-', '_', num_dashes - 1)
+                dl_name, dl_suffix = download_filename.rsplit('-', maxsplit=1)
+                # Guide https://packaging.python.org/en/latest/specifications/binary-distribution-format
+                # "any run of -_. characters [...] should be replaced with _".
+                # Account for different "compliance levels" and deduplicate (if only dashes were used all are the same)
+                alt_download_filenames = nub(f'{name}-{dl_suffix}' for name in (
+                    re.sub('[.-_]+', '_', dl_name),  # Fully compliant
+                    re.sub('-+', '_', dl_name),  # Only dashes
+                    re.sub(r'\.+', '_', dl_name),  # Only dots
+                ))
                 self.log.warning("Could not download %s (%s) from any of %s.\n"
-                                 "Retrying with alternative download filename '%s' as it looks like a PYPI source.",
-                                 filename, download_filename, ', '.join(source_urls), alt_download_filename)
-                # retry with alternative download_filename
-                downloaded, failed_urls = self.download_file(target_path, alt_download_filename, urls=source_urls,
-                                                             # Only log when extensions have explicit URLs
-                                                             log_url_in_dry_run=extension and urls)
-                if downloaded:
-                    return target_path
-                failedpaths.extend(failed_urls)
+                                 "Retrying with alternative download filenames '%s' as it looks like a PYPI source.",
+                                 filename, download_filename, ', '.join(source_urls), ', '.join(alt_download_filenames))
+                for alt_download_filename in alt_download_filenames:
+                    downloaded, failed_urls = self.download_file(target_path, alt_download_filename, urls=source_urls,
+                                                                 # Only log when extensions have explicit URLs
+                                                                 log_url_in_dry_run=extension and urls)
+                    if downloaded:
+                        return target_path
+                    failedpaths.extend(failed_urls)
 
             if self.dry_run:
                 self.dry_run_msg("  * %s (MISSING)", filename)
