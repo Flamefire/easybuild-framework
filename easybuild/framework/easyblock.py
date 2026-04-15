@@ -1050,18 +1050,22 @@ class EasyBlock:
                 return target_path
             failedpaths.extend(failed_urls)
 
-            # Usual PYPI sources have a format of '<name>-version.ext', with '<name>' has dashes replaced by underscores
-            if download_filename.count('-') >= 2 and any(PYPI_PKG_URL_PATTERN in url for url in source_urls):
-                # Last dash is the separator between name and version
+            # Usual PYPI sources have a format of '<name>-version.ext'
+            # Last dash is the separator between name and version
+            if '-' in download_filename:
                 dl_name, dl_suffix = download_filename.rsplit('-', maxsplit=1)
+                pypi_like_fn = '-' in dl_name or '.' in dl_name
+            else:
+                pypi_like_fn = False
+            if pypi_like_fn and any(PYPI_PKG_URL_PATTERN in url for url in source_urls):
                 # Guide https://packaging.python.org/en/latest/specifications/binary-distribution-format
                 # "any run of -_. characters [...] should be replaced with _".
                 # Account for different "compliance levels" and deduplicate (if only dashes were used all are the same)
                 alt_download_filenames = nub(f'{name}-{dl_suffix}' for name in (
-                    re.sub('[.-_]+', '_', dl_name),  # Fully compliant
-                    re.sub('-+', '_', dl_name),  # Only dashes
-                    re.sub(r'\.+', '_', dl_name),  # Only dots
-                ))
+                    re.sub('[-._]+', '_', dl_name),  # Fully compliant
+                    re.sub('[-_]+', '_', dl_name),  # Only dashes
+                    re.sub(r'[\._]+', '_', dl_name),  # Only dots
+                ) if name != dl_name)
                 self.log.warning("Could not download %s (%s) from any of %s.\n"
                                  "Retrying with alternative download filenames '%s' as it looks like a PYPI source.",
                                  filename, download_filename, ', '.join(source_urls), ', '.join(alt_download_filenames))
