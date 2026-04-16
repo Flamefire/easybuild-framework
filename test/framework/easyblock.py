@@ -2389,7 +2389,7 @@ class EasyBlockTest(EnhancedTestCase):
         # file specifications via URL also work, are downloaded to (first) sourcepath
         init_config(args=["--sourcepath=%s:/no/such/dir:%s" % (tmpdir, sandbox_sources)])
         urls = [
-            "https://easybuilders.github.io/easybuild/index.html",
+            "http://easybuilders.github.io/easybuild/index.html",
             "https://easybuilders.github.io/easybuild/index.html",
         ]
         for file_url in urls:
