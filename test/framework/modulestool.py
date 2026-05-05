@@ -123,8 +123,7 @@ class ModulesToolTest(EnhancedTestCase):
 
         mt = MockModulesTool(testing=True)
         logtxt = read_file(self.logfile)
-        warn_regex = re.compile("WARNING .*pattern .* not found in defined 'module' function")
-        self.assertTrue(warn_regex.search(logtxt), "Found pattern '%s' in: %s" % (warn_regex.pattern, logtxt))
+        self.assertRegex(logtxt, "WARNING .*pattern .* not found in defined 'module' function")
 
         # redefine 'module' function with correct module command
         os.environ['module'] = "() {  eval `/bin/echo $*`\n}"
@@ -135,8 +134,7 @@ class ModulesToolTest(EnhancedTestCase):
         del os.environ['module']
         mt = MockModulesTool(testing=True)
         logtxt = read_file(self.logfile)
-        warn_regex = re.compile("WARNING No 'module' function defined, can't check if it matches .*")
-        self.assertTrue(warn_regex.search(logtxt), "Pattern %s found in %s" % (warn_regex.pattern, logtxt))
+        self.assertRegex(logtxt, re.compile("WARNING No 'module' function defined, can't check if it matches .*"))
 
         fancylogger.logToFile(self.logfile, enable=False)
 
