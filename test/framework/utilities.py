@@ -214,7 +214,7 @@ class EnhancedTestCase(TestCase):
         self.env_pythonpath = os.environ.get('PYTHONPATH')
 
         self.modtool: ModulesTool = modules_tool()
-        self.reset_modulepath([os.path.join(TEST_MODULES_DIR)])
+        self.reset_modulepath([TEST_MODULES_DIR])
         reset_module_caches()
 
     def disallow_deprecated_behaviour(self):
