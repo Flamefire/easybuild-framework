@@ -3723,7 +3723,7 @@ class FileToolsTest(EnhancedTestCase):
         # (it's straight in the easybuild-framework directory)
         setup_py = 'setup.py'
         if os.path.exists(os.path.join(topdir, setup_py)):
-            test_files.append(os.path.join(setup_py))
+            test_files.append(setup_py)
             expected_entries.append(setup_py)
             expected_new.append(True)
 
