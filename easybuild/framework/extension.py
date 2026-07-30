@@ -253,6 +253,20 @@ class Extension:
         """
         raise NotImplementedError
 
+    def async_cmd_check(self):
+        """
+        Check progress of installation command that was started asynchronously.
+        :return: True if command completed, False otherwise
+        """
+        if not self.async_cmd_task.done():
+            return False
+        res: RunShellCmdResult = self.async_cmd_task.result()
+        self.log.debug(f"Asynchronous command for {self.name} finished with exit code {res.exit_code}")
+        self.async_cmd_output = res.output
+        if res.stderr:
+            self.async_cmd_output += res.stderr
+        return True
+
     def postrun(self):
         """
         [DEPRECATED][6.0] Stuff to do after installing a extension.

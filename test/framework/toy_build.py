@@ -2000,7 +2000,7 @@ class ToyBuildTest(EnhancedTestCase):
 
         logtxt = read_file(self.logfile)
 
-        return logtxt
+        return stdout, logtxt
 
     def test_toy_exts_sequential(self):
         """
@@ -2010,7 +2010,7 @@ class ToyBuildTest(EnhancedTestCase):
         # but also test with it disable explicitly
         for args in ([], ['--disable-parallel-extensions-install']):
 
-            logtxt = self._test_toy_exts_common(args=args)
+            logtxt = self._test_toy_exts_common(args=args)[1]
 
             self.assertRegex(logtxt, "INFO Installing extensions sequentially")
 
@@ -2052,7 +2052,7 @@ class ToyBuildTest(EnhancedTestCase):
             # also test skipping of extensions in parallel
             args.append('--skip')
 
-            logtxt = self._test_toy_exts_common(args=args)
+            logtxt = self._test_toy_exts_common(args=args)[1]
 
             # order in which these patterns occur is not fixed, so check them one by one
             patterns = [
@@ -2070,7 +2070,7 @@ class ToyBuildTest(EnhancedTestCase):
         """
         args = ['--parallel-extensions-install']
 
-        logtxt = self._test_toy_exts_common(args=args)
+        stdout, logtxt = self._test_toy_exts_common(args=args)
 
         # take into account that each of these lines may appear multiple times,
         # in case no progress was made between checks
@@ -2109,11 +2109,12 @@ class ToyBuildTest(EnhancedTestCase):
             "toy/0.0-GCC-12.3.0",
         ]
         self.assertEqual(res, expected)
+        self.assertIn("Async toy extension build done", stdout)  # async_cmd_check of custom easyblock called
 
         # also test skipping of extensions in parallel
         args.append('--skip')
 
-        logtxt = self._test_toy_exts_common(args=args)
+        logtxt = self._test_toy_exts_common(args=args)[1]
 
         # order in which these patterns occur is not fixed, so check them one by one
         patterns = [
@@ -2136,7 +2137,7 @@ class ToyBuildTest(EnhancedTestCase):
 
         args[-1] = '--include-easyblocks=%s' % toy_ext_eb
 
-        logtxt = self._test_toy_exts_common(args=args)
+        logtxt = self._test_toy_exts_common(args=args)[1]
 
         # take into account that each of these lines may appear multiple times,
         # in case no progress was made between checks

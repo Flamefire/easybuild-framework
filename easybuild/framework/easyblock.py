@@ -2471,7 +2471,7 @@ class EasyBlock:
             if running_exts:
                 self.log.info(f"Checking for completed extension installations ({len(running_exts)} running)...")
                 for ext in running_exts[:]:
-                    if self.dry_run or ext.async_cmd_task.done():
+                    if self.dry_run or ext.async_cmd_check():
                         installs_completed = True
                         res = ext.async_cmd_task.result()
                         if res.exit_code == EasyBuildExit.SUCCESS:
