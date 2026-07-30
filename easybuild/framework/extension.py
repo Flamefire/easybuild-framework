@@ -37,13 +37,15 @@ Authors:
 """
 import copy
 import os
+from concurrent.futures import Future
+from typing import Optional
 
 from easybuild.framework.easyconfig.default import get_easyconfig_parameter_default
 from easybuild.framework.easyconfig.easyconfig import resolve_template
 from easybuild.framework.easyconfig.templates import TEMPLATE_NAMES_EASYBLOCK_RUN_STEP, template_constant_dict
 from easybuild.tools.build_log import EasyBuildError, EasyBuildExit
 from easybuild.tools.filetools import change_dir
-from easybuild.tools.run import run_shell_cmd
+from easybuild.tools.run import run_shell_cmd, RunShellCmdResult
 from easybuild.tools.utilities import trace_msg
 
 
@@ -125,6 +127,7 @@ class Extension:
         self.cfg = self.master.cfg.copy(validate=False)
         self.ext = copy.deepcopy(ext)
         self.dry_run = self.master.dry_run
+        self.async_cmd_task: Optional[Future[RunShellCmdResult]] = None
 
         if 'name' not in self.ext:
             raise EasyBuildError("'name' is missing in supplied class instance 'ext'.")

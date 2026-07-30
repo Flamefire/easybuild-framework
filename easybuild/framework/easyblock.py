@@ -68,6 +68,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from string import ascii_letters
 from textwrap import indent
+from typing import List
 
 import easybuild.tools.environment as env
 import easybuild.tools.toolchain as toolchain
@@ -108,7 +109,7 @@ from easybuild.tools.hooks import (
     MODULE_STEP, MODULE_WRITE, PACKAGE_STEP, PATCH_STEP, PERMISSIONS_STEP, POSTITER_STEP, POSTPROC_STEP, PREPARE_STEP,
     READY_STEP, SANITYCHECK_STEP, SINGLE_EXTENSION, TEST_STEP, TESTCASES_STEP, load_hooks, run_hook,
 )
-from easybuild.tools.run import RunShellCmdError, raise_run_shell_cmd_error, run_shell_cmd
+from easybuild.tools.run import RunShellCmdError, RunShellCmdResult, raise_run_shell_cmd_error, run_shell_cmd
 from easybuild.tools.jenkins import write_to_xml
 from easybuild.tools.module_generator import ModuleGeneratorLua, ModuleGeneratorTcl, module_generator, dependencies_for
 from easybuild.tools.module_naming_scheme.utilities import det_full_ec_version
@@ -2335,7 +2336,11 @@ class EasyBlock:
         :param install: actually install extensions, don't just prepare environment for installing
         """
         self.log.info("Installing extensions in parallel...")
-
+        if self.dry_run:
+            # No tasks started in dry-run so use dummy result
+            dry_run_mock_result = RunShellCmdResult(cmd='dummy', output="bar", exit_code=0, stderr=None,
+                                                    work_dir='/test_cat', out_file='/tmp/cat.out', err_file=None,
+                                                    cmd_sh='/tmp/cmd.sh', thread_id=None, task_id=None)
         thread_pool = ThreadPoolExecutor(max_workers=self.cfg.parallel)
 
         # path to fake module file, so we can check if contents change after installing extensions
@@ -2344,8 +2349,8 @@ class EasyBlock:
         self.log.debug("Determining build environment for extensions...")
         build_env, fake_mod_file_txt = self._install_extensions_det_init_build_env(fake_mod_file_path)
 
-        running_exts = []
-        installed_ext_names = []
+        running_exts: List[Extension] = []
+        installed_ext_names: List[str] = []
 
         all_ext_names = [x['name'] for x in self.exts]
         self.log.debug("List of names of all extensions: %s", all_ext_names)
@@ -2355,7 +2360,7 @@ class EasyBlock:
         installed_ext_names = [n for n in all_ext_names if n not in to_install_ext_names]
 
         exts_cnt = len(all_ext_names)
-        exts_queue = self.ext_instances[:]
+        exts_queue: List[Extension] = self.ext_instances[:]
 
         def update_exts_progress_bar_helper(running_exts, progress_size):
             """Helper function to update extensions progress bar."""
@@ -2472,15 +2477,19 @@ class EasyBlock:
                 self.log.info(f"Checking for completed extension installations ({len(running_exts)} running)...")
                 for ext in running_exts[:]:
                     if self.dry_run or ext.async_cmd_check():
+                        if self.dry_run:
+                            res = dry_run_mock_result
+                        else:
+                            res = ext.async_cmd_task.result()
                         installs_completed = True
-                        res = ext.async_cmd_task.result()
                         if res.exit_code == EasyBuildExit.SUCCESS:
                             print_msg(f"installation of extension {ext.name} {ext.version or ''} completed!",
                                       silent=self.silent, log=self.log)
-                            # run post-install method for extension from same working dir as installation of extension
-                            cwd = change_dir(res.work_dir)
-                            ext.install_extension_substep("post_install_extension")
-                            change_dir(cwd)
+                            if not self.dry_run:
+                                # run post-install method for extension from same working dir as installation of it
+                                cwd = change_dir(res.work_dir)
+                                ext.install_extension_substep("post_install_extension")
+                                change_dir(cwd)
                             running_exts.remove(ext)
                             installed_ext_names.append(ext.name)
                             update_exts_progress_bar_helper(running_exts, 1)
