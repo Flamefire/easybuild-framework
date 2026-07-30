@@ -112,7 +112,8 @@ class ToyBuildTest(EnhancedTestCase):
         if os.path.exists(self.dummylogfn):
             os.remove(self.dummylogfn)
 
-    def check_toy(self, installpath, outtxt, name='toy', version='0.0', versionprefix='', versionsuffix='', error=None):
+    def check_toy(self, installpath, outtxt, name='toy', version='0.0', versionprefix='', versionsuffix='', error=None,
+                  args=None):
         """Check whether toy build succeeded."""
 
         full_version = ''.join([versionprefix, version, versionsuffix])
@@ -125,6 +126,8 @@ class ToyBuildTest(EnhancedTestCase):
         # check for success
         success = re.compile(r"COMPLETED: Installation (ended|STOPPED) successfully \(took .* secs?\)")
         self.assertTrue(success.search(outtxt), "COMPLETED message found in '%s'%s" % (outtxt, error_msg))
+        if args and any(arg in args for arg in ('--dry-run', '--extended-dry-run')):
+            return  # No module created
 
         # if the module exists, it should be fine
         toy_module = os.path.join(installpath, 'modules', 'all', name, full_version)
@@ -195,7 +198,8 @@ class ToyBuildTest(EnhancedTestCase):
                 raise myerr
 
         if verify:
-            self.check_toy(self.test_installpath, outtxt, name=name, versionsuffix=versionsuffix, error=myerr)
+            self.check_toy(self.test_installpath, outtxt, name=name, versionsuffix=versionsuffix, error=myerr,
+                           args=args)
 
         if test_readme:
             # make sure postinstallcmds were used
@@ -1988,7 +1992,7 @@ class ToyBuildTest(EnhancedTestCase):
         ])
         write_file(test_ec, test_ec_txt)
 
-        extra_args = ['--force', '--parallel=3']
+        extra_args = ['--rebuild', '--parallel=3']
         if args:
             extra_args.extend(args)
 
@@ -2110,6 +2114,23 @@ class ToyBuildTest(EnhancedTestCase):
         ]
         self.assertEqual(res, expected)
         self.assertIn("Async toy extension build done", stdout)  # async_cmd_check of custom easyblock called
+
+        dry_run_args = args + [
+            '--extended-dry-run',
+            # Start clean, otherwise the existing dir is detected as a ghost directory
+            f'--installpath={tempfile.mkdtemp()}'
+        ]
+        logtxt = self._test_toy_exts_common(args=dry_run_args)[1]
+        # Compare those to the patterns in real mod above
+        patterns = [
+            "INFO Installing extensions in parallel",
+            # In dry-run mode extension installations complete immediately, so bar is finished already
+            r"INFO 2 out of 4 extensions installed \(2 queued, 0 running: \)$",
+            # Same for toy
+            r"INFO 3 out of 4 extensions installed \(1 queued, 0 running: \)$",
+            r"INFO 4 out of 4 extensions installed \(0 queued, 0 running: \)$",
+        ]
+        self.assert_multi_regex(patterns, logtxt)
 
         # also test skipping of extensions in parallel
         args.append('--skip')
