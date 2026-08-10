@@ -254,6 +254,15 @@ class Toolchain:
                                  'usually in prepare_step')
         return self._dependencies
 
+    @dependencies.setter
+    def dependencies(self, deps):
+        self.log.deprecated(
+            "Setting toolchain.dependencies should only be done by the toolchain instance and "
+            "through self._dependencies.",
+            '6.0',
+        )
+        self._dependencies = deps
+
     @property
     def search_path_vars_headers(self):
         """Return list of environment variables used as search paths for headers"""
