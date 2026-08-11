@@ -2281,7 +2281,7 @@ class EasyBlock:
 
         build_env, fake_mod_file_txt = self._install_extensions_det_init_build_env(fake_mod_file_path)
 
-        for idx, ext in enumerate(self.ext_instances):
+        for idx, ext in enumerate(self.ext_instances, start=1):
             self.log.info("Starting extension %s", ext.name)
 
             run_hook(SINGLE_EXTENSION, self.hooks, pre_step_hook=True, args=[ext])
@@ -2289,18 +2289,17 @@ class EasyBlock:
             # always go back to original work dir to avoid running stuff from a dir that no longer exists
             change_dir(self.orig_workdir)
 
-            progress_info = "Installing '%s' extension (%s/%s)" % (ext.name, idx + 1, exts_cnt)
+            progress_info = f"Installing '{ext.name}' extension ({idx}/{exts_cnt})"
             self.update_exts_progress_bar(progress_info)
 
-            tup = (ext.name, ext.version or '', idx + 1, exts_cnt)
-            print_msg("installing extension %s %s (%d/%d)..." % tup, silent=self.silent, log=self.log)
+            print_msg(f"installing extension {ext.name} {ext.version or ''} ({idx}/{exts_cnt})...",
+                      silent=self.silent, log=self.log)
             start_time = datetime.now()
 
             if install:
                 if self.dry_run:
-                    tup = (ext.name, ext.version, ext.__class__.__name__)
-                    msg = "\n* installing extension %s %s using '%s' easyblock\n" % tup
-                    self.dry_run_msg(msg)
+                    self.dry_run_msg(f"\n* installing extension {ext.name} {ext.version} "
+                                     f"using '{ext.__class__.__name__}' easyblock\n")
                 else:  # actual installation of the extension
                     # restore build environment for this extension
                     restore_env(build_env, log_changes=False)
@@ -2449,8 +2448,8 @@ class EasyBlock:
                     # since we assume that the required dependencies will be installed soon...
                     exts_queue.insert(max_iter, ext)
                 else:
-                    tup = (ext.name, ext.version or '')
-                    print_msg("starting installation of extension %s %s..." % tup, silent=self.silent, log=self.log)
+                    print_msg(f"starting installation of extension {ext.name} {ext.version or ''}...",
+                              silent=self.silent, log=self.log)
 
                     if install:
                         if self.dry_run:
