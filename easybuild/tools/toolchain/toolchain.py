@@ -654,12 +654,13 @@ class Toolchain:
             self.log.debug("Loading toolchain module and dependencies...")
 
         tc_mod = None if system_toolchain else self.det_short_module_name()
-        # For SYSTEM software we allow using dependencies from any toolchain so we need to use the full
-        # module name to allow loading them in the hierarchical MNS
-        is_system_toolchain = self.is_system_toolchain()
 
         def get_module_name(dep):
-            key = 'full_mod_name' if is_system_toolchain and not dep[SYSTEM_TOOLCHAIN_NAME] else 'short_mod_name'
+            key = 'short_mod_name'
+            if system_toolchain and not dep[SYSTEM_TOOLCHAIN_NAME]:
+                # When using the SYSTEM toolchain, we should use the full module name to load dependencies NOT from the
+                # SYSTEM toolchain to allow using dependencies from any toolchain when using a hierarchical MNS
+                key = 'full_mod_name'
             return dep[key]
 
         dep_mods = [get_module_name(dep) for dep in self.dependencies]
