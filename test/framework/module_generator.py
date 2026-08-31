@@ -34,11 +34,13 @@ import re
 import sys
 import tempfile
 from unittest import TextTestRunner, TestSuite
+from typing import Optional, Type
 
 from easybuild.framework.easyconfig.tools import process_easyconfig
 from easybuild.tools import LooseVersion, config
 from easybuild.tools.filetools import mkdir, read_file, remove_file, write_file
-from easybuild.tools.module_generator import ModuleGeneratorLua, ModuleGeneratorTcl, dependencies_for, wrap_shell_vars
+from easybuild.tools.module_generator import ModuleGenerator, ModuleGeneratorLua, ModuleGeneratorTcl
+from easybuild.tools.module_generator import dependencies_for, wrap_shell_vars
 from easybuild.tools.module_naming_scheme.utilities import is_valid_module_name
 from easybuild.framework.easyblock import EasyBlock
 from easybuild.framework.easyconfig.easyconfig import EasyConfig, ActiveMNS
@@ -51,7 +53,7 @@ from test.framework.utilities import EnhancedTestCase, TestLoaderFiltered, find_
 class ModuleGeneratorTest(EnhancedTestCase):
     """Tests for module_generator module."""
 
-    MODULE_GENERATOR_CLASS = None
+    MODULE_GENERATOR_CLASS: Optional[Type[ModuleGenerator]] = None
 
     def setUp(self):
         """Test setup."""
@@ -1012,6 +1014,7 @@ class ModuleGeneratorTest(EnhancedTestCase):
     def test_env(self):
         """Test setting of environment variables."""
         collection = (
+            # pylint: disable=line-too-long
             # value,               relpath, Tcl reference,                                    Lua reference
             ("value",              False,   'setenv\tkey\t\t"value"\n',                       'setenv("key", "value")\n'),  # noqa
             ('va"lue',             False,   'setenv\tkey\t\t"va\\"lue"\n',                    'setenv("key", \'va"lue\')\n'),  # noqa

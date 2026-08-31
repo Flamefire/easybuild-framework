@@ -695,7 +695,7 @@ class EasyBlock:
                         'github_account': ext_options.get('github_account', orig_github_account),
                         # if a particular easyblock is specified, make sure it's used
                         # (this is picked up by init_ext_instances)
-                        'easyblock': ext_options.get('easyblock', None),
+                        'easyblock': ext_options.get('easyblock'),
                     }
 
                     # construct dictionary with template values;
