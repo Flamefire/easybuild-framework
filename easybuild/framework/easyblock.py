@@ -866,8 +866,7 @@ class EasyBlock:
                     exts_sources.append(ext_src)
 
             elif isinstance(ext, str):
-                exts_sources.append({'name': ext})
-
+                exts_sources.append({'name': resolve_template(ext, self.cfg.template_values)})
             else:
                 raise EasyBuildError("Extension specified in unknown format (not a string/list/tuple)")
 

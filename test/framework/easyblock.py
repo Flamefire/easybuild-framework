@@ -1601,6 +1601,7 @@ class EasyBlockTest(EnhancedTestCase):
             "    ('bar', '0.0', {'extension_name': 'bar-alias'}),",
             "    ('barbar', '1.2', {'extension_name': '%(name)s-ext_%(version)s'}),",
             "    ('%(name)s', '%(version)s'),",
+            "    '%(name)s-str',",
             "]",
         ])
         self.writeEC()
@@ -1614,15 +1615,16 @@ class EasyBlockTest(EnhancedTestCase):
             ('bar-alias', '0.0'),
             ('barbar-ext_1.2', '1.2'),
             ('toy', '0.0'),
+            ('toy-str',),
         ]
         self.assertEqual(eb.make_extension_list(), expected)
-        self.assertEqual(eb.make_extension_string(), 'bar-alias-0.0, barbar-ext_1.2-1.2, toy-0.0, ulimit')
+        self.assertEqual(eb.make_extension_string(), 'bar-alias-0.0, barbar-ext_1.2-1.2, toy-0.0, toy-str, ulimit')
 
         # top-level 'extension_name' is added as an extra extension, as if it was in exts_list
         eb.cfg['extension_name'] = 'extra'
         self.assertEqual(eb.make_extension_list(), expected + [('extra', '0.0')])
         self.assertEqual(eb.make_extension_string(),
-                         'bar-alias-0.0, barbar-ext_1.2-1.2, extra-0.0, toy-0.0, ulimit')
+                         'bar-alias-0.0, barbar-ext_1.2-1.2, extra-0.0, toy-0.0, toy-str, ulimit')
 
         # templates used in top-level 'extension_name' are resolved
         eb.cfg['extension_name'] = '%(name)s-extra'
@@ -1640,6 +1642,7 @@ class EasyBlockTest(EnhancedTestCase):
             ('bar-alias-fmt', '0.0'),
             ('barbar-ext_1.2-fmt', '1.2'),
             ('toy-fmt', '0.0'),
+            ('toy-str-fmt',),
             ('extra-fmt', '0.0'),
         ])
 
