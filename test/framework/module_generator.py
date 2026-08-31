@@ -862,6 +862,41 @@ class ModuleGeneratorTest(EnhancedTestCase):
             regex = re.compile(pattern, re.M)
             self.assertFalse(regex.search(desc), "Pattern '%s' not found in: %s" % (regex.pattern, desc))
 
+    def test_module_extensions_extension_name(self):
+        """Test that the 'extension_name' easyconfig parameter is included in the 'extensions' statement."""
+        # not supported by Environment Modules for the moment
+        if isinstance(self.modtool, EnvironmentModules):
+            return
+
+        init_config(build_options={'module_extensions': True})
+
+        test_dir = os.path.abspath(os.path.dirname(__file__))
+        os.environ['MODULEPATH'] = os.path.join(test_dir, 'modules')
+        # toy easyconfig without extensions in exts_list
+        test_ec_txt = read_file(os.path.join(test_dir, 'easyconfigs', 'test_ecs', 't', 'toy', 'toy-0.0-test.eb'))
+        test_ec = os.path.join(self.test_prefix, 'test.eb')
+        for with_ext in (True, False):
+            with self.subTest(add_extension=with_ext):
+                if with_ext:
+                    ec_txt = test_ec_txt + "\nextension_name = 'extra'\n"
+                else:
+                    ec_txt = test_ec_txt
+                write_file(test_ec, ec_txt)
+
+                eb = EasyBlock(EasyConfig(test_ec))
+                modgen = self.MODULE_GENERATOR_CLASS(eb)
+                desc = modgen.get_description()
+
+                if self.MODULE_GENERATOR_CLASS == ModuleGeneratorTcl:
+                    pattern = r'\s*extensions extra/0.0\n'
+                else:
+                    pattern = r'\s*extensions\("extra/0\.0"\)'
+
+                if with_ext:
+                    self.assertRegex(desc, pattern)
+                else:
+                    self.assertNotRegex(desc, pattern)
+
     def test_prepend_paths(self):
         """Test generating prepend-paths statements."""
         # test prepend_paths
