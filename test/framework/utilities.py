@@ -563,7 +563,7 @@ def find_full_path(base_path, trim=(lambda x: x)):
 def skip_silently(test_item):
     """Decorator to turn a test into a no-op"""
     @functools.wraps(test_item)
-    def skip_wrapper(*args, **kwargs):
+    def skip_wrapper(*_args, **_kwargs):
         return
     return skip_wrapper
 
@@ -584,6 +584,7 @@ def skip_silentCI_unless(condition, reason):
 
 
 def requires_pycodestyle():
+    """Decorator to skip a test if pycodestyle is not available."""
     try:
         import pycodestyle  # noqa # pylint:disable=unused-import
         ok = True
@@ -593,6 +594,7 @@ def requires_pycodestyle():
 
 
 def requires_autopep8():
+    """Decorator to skip a test if autopep8 is not available."""
     try:
         import autopep8  # noqa # pylint:disable=unused-import
         ok = True
@@ -602,8 +604,9 @@ def requires_autopep8():
 
 
 def requires_GC3Pie():
+    """Decorator to skip a test if GC3Pie is not available."""
     try:
-        import gc3libs  # noqa
+        import gc3libs  # noqa # pylint:disable=unused-import
         ok = True
     except ImportError:
         ok = False
@@ -617,7 +620,7 @@ def requires_GC3Pie():
 
 def requires_graphviz():
     try:
-        import graphwiz  # noqa # pylint:disable=unused-import
+        import graphviz  # noqa # pylint:disable=unused-import
         ok = True
     except ImportError:
         ok = False
@@ -625,6 +628,7 @@ def requires_graphviz():
 
 
 def requires_pysvn():
+    """Decorator to skip a test if PySVN is not available."""
     try:
         from pysvn import ClientError  # noqa
         ok = True
