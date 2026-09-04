@@ -579,28 +579,27 @@ def skip_silentCI_unless(condition, reason):
     On CI the test is turned into a no-op to avoid any output."""
     if 'CI' in os.environ:
         return skip_never if condition else skip_silently
-    else:
-        return unittest.skipUnless(condition, reason)
+    return unittest.skipUnless(condition, reason)
 
 
-def requires_pycodestyle():
-    """Decorator to skip a test if pycodestyle is not available."""
+def requires_package(package):
+    """Skip a test if *package* cannot be imported"""
     try:
-        import pycodestyle  # noqa # pylint:disable=unused-import
+        __import__(package)
         ok = True
     except ImportError:
         ok = False
-    return unittest.skipUnless(ok, "no pycodestyle available")
+    return unittest.skipUnless(ok, f"{package} is not available")
 
 
-def requires_autopep8():
-    """Decorator to skip a test if autopep8 is not available."""
-    try:
-        import autopep8  # noqa # pylint:disable=unused-import
-        ok = True
-    except ImportError:
-        ok = False
-    return unittest.skipUnless(ok, "autopep8 is not available")
+# Decorator to skip a test if pycodestyle is not available
+requires_pycodestyle = requires_package('pycodestyle')
+# Decorator to skip a test if autopep8 is not available
+requires_autopep8 = requires_package('autopep8')
+# Decorator to skip a test if graphviz is not available
+requires_graphviz = requires_package('graphviz')
+# Decorator to skip a test if PyYAML is not available
+requires_PyYAML = requires_package('yaml')
 
 
 def requires_GC3Pie():
@@ -610,39 +609,20 @@ def requires_GC3Pie():
         ok = True
     except ImportError:
         ok = False
-    if LooseVersion(sys.version) < '3.11':
-        return unittest.skipUnless(ok, "GC3Pie not available")
-    else:
+    if LooseVersion(sys.version) >= '3.11':
         # GC3Pie not available for Python 3.11 so silently skip:
         # https://github.com/gc3pie/gc3pie/issues/674
         return skip_silentCI_unless(ok, "GC3Pie not available")
-
-
-def requires_graphviz():
-    try:
-        import graphviz  # noqa # pylint:disable=unused-import
-        ok = True
-    except ImportError:
-        ok = False
-    return unittest.skipUnless(ok, "graphviz is not available")
+    return unittest.skipUnless(ok, "GC3Pie not available")
 
 
 def requires_pysvn():
     """Decorator to skip a test if PySVN is not available."""
     try:
-        from pysvn import ClientError  # noqa
+        from pysvn import ClientError  # noqa # pylint:disable=unused-import
         ok = True
     except ImportError:
         ok = False
     # For CI skip silently, not easy enough to install,
     # see https://github.com/leafvmaple/pysvn/issues/1
     return skip_silentCI_unless(ok, "PySVN is not available, use e.g. apt-get install python3-svn")
-
-
-def requires_PyYAML():
-    try:
-        import yaml  # noqa # pylint:disable=unused-import
-        ok = True
-    except ImportError:
-        ok = False
-    return unittest.skipUnless(ok, "PyYAML is not available")
