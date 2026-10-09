@@ -34,3 +34,11 @@ jobs:
     - name: Run flake8 to verify PEP8-compliance of Python code
       run: |
         flake8
+
+    - name: Check for new assertErrorRegex usage
+      if: github.event_name == 'pull_request'
+      run: |
+        if git diff --unified=0 "${{ github.event.pull_request.base.sha }}"...HEAD -- '*.py' | grep -E '^\+[^+].*self\.assertErrorRegex'; then
+          echo "::error::New assertErrorRegex usage detected, use assertRaisesRegex instead"
+          exit 1
+        fi
